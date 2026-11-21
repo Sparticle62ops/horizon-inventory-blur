@@ -29,6 +29,7 @@ authors = ["Enchanted-Games", "sparticle"]
 license = "CC-BY-NC-4.0"
 homepage = "https://github.com/Sparticle62ops/horizon-inventory-blur"
 api = "0.2"
+namespaces = ["eg-inventory-blur"]
 side = "client"
 capabilities = ["registries"]
 
