@@ -5,34 +5,50 @@ A Rust port of [Inventory Blur](https://github.com/Enchanted-Games/inventory-blu
 background blur to in-world inventories (chests, the player inventory and
 other Screen-extended menus) instead of the vanilla dark gradient.
 
-## Scope of this commit (the mod's full logic core, 1:1)
+## Scope (the mod's full logic core, 1:1)
 
 Upstream read at commit 4546a17, the whole mod is 171 lines of Java. The
-1:1 core lives in mixins/inventory_blur/runtime.rs:
+1:1 core lives in `src/runtime.rs`, behind the mod API wiring in
+`src/lib.rs`:
 
-- ModConstants (name, id) and the in-world background texture location
-  (a 16x16 image tiled across the screen).
-- ScreenMixin's renderTransparentBackground replacement as a decision
-  function: skip the vanilla fillGradient dark gradient entirely; on 1.21.6+
-  call the screen's blurred-background render, but only when the render
-  state's first stratum after blur is still unset (so the blur draws once
-  per frame); on older builds tile the inworld background texture instead.
-- The tile-count math for the legacy path.
+- ModConstants (name, id, the fabric platform), the SLF4J Logging
+  wrapper with its "[Inventory Blur]: " prefix, ModEntry and the loader
+  entrypoints (FabricCommonEntry calls ModEntry.init;
+  FabricClientEntry.onInitializeClient is empty; NeoForgeEntry sits
+  preprocessor-commented out upstream).
+- ScreenMixin's renderTransparentBackground replacement:
+  eg_inventory_blur$ignoreGradientCall is an empty WrapOperation, so the
+  vanilla dark gradient is never issued; eg_inventory_blur$applyBlurAndDrawBG
+  skips when the render state's first stratum after blur is set (the
+  1.21.6+ guard), then renders the blurred background and, on both build
+  paths, tiles eg-inventory-blur:textures/gui/inworld_inventory_background.png
+  over the menu. The texture asset ships at
+  assets/eg-inventory-blur/textures/gui/inworld_inventory_background.png.
+- The tile-count math the vanilla renderMenuBackgroundTexture draw uses.
 
-5 tests green.
+9 tests green.
+
+## Mod API wiring
+
+Upstream holds no config file: the whole mod exposes no settings, so
+`register` registers none. `client_setup` runs ModEntry.init 1:1, the
+fabric build's platform line.
 
 ## Degradation (rendering rides Horizon's screen surfaces)
 
-The actual blur application and the tiled texture draw are render calls on
-Screen.renderTransparentBackground, which Horizon does not expose to client
-mods: there is no screen background render hook (no blur shader surface, no
-replacement point for the menu background, no texture tiling draw). A seam
-issue is filed on horizon-rust/horizon. Upstream's asset (the 16x16
-inworld_inventory_background.png) is copied under its CC BY-NC 4.0 terms.
+The actual blur application and the tiled texture draw are render calls
+inside Screen.renderTransparentBackground, and the pinned mod API
+(Horizon f00125f61f794aaa3d4e950d301f353b35b6ee3d, mixins
+e59da9094f0c2fdda6c627fe9eff22dec6a906f0, api 0.2) has no client screen
+background render surface a mod can hook: no blur shader surface, no
+replacement point for the menu background, no texture tiling draw. The
+gap is tracked on horizon-rust/horizon#19349 (the screen-render hook
+filed for the Blur+ port; the same surface this port needs) and was
+first filed as #10131, closed 2026-11-06 without the surface landing.
+Until it lands the core compiles and tests green, and the screens draw
+vanilla's gradient.
 
-## License
+## Licence
 
-Upstream Inventory Blur: CC BY-NC 4.0 (c) ioblackshaw / Enchanted_Games.
-Non-commercial use only; the full deed is at
-https://creativecommons.org/licenses/by-nc/4.0/. This port carries the same
-license; see LICENSE.
+CC-BY-NC-4.0, matching upstream. Upstream credit:
+Enchanted_Games / ioblackshaw.
